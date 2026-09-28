@@ -1,0 +1,25 @@
+<section class="money-dashboard" aria-labelledby="money-heading">
+  <div class="section-heading"><h2 id="money-heading">金额总览</h2><span class="muted">当前筛选 · 全部 {{ total }} 份{{ '归档' if archived else '' }}合同</span></div>
+  <p class="field-help">按币种分别汇总，不限当前页。未知金额不按零元计算；余额逐份计算，超收超付不抵销其他合同。</p>
+  {% for group in amount_groups %}
+  <section class="currency-ledger" aria-label="{{ group.currency }} 金额汇总">
+    <h3>{{ currencies.get(group.currency, group.currency) }} <span class="muted">{{ group.count }} 份合同</span></h3>
+    <dl class="ledger-line">
+      <div><dt>对方应付我方总额</dt><dd>{{ group.receivable|money }}</dd></div>
+      <div><dt>我方已收到</dt><dd>{{ group.received|money }}</dd></div>
+      <div class="ledger-balance"><dt>我方尚未收到</dt><dd><a href="{{ finance_links.unpaid }}">{{ group.unreceived|money }}</a></dd></div>
+    </dl>
+    <dl class="ledger-line">
+      <div><dt>我方应付对方总额</dt><dd>{{ group.payable|money }}</dd></div>
+      <div><dt>我方已支付</dt><dd>{{ group.paid|money }}</dd></div>
+      <div class="ledger-balance"><dt>我方尚未支付</dt><dd><a href="{{ finance_links.payable }}">{{ group.unpaid|money }}</a></dd></div>
+    </dl>
+    <dl class="ledger-line invoice-line">
+      <div><dt>我方已开票</dt><dd>{{ group.invoiced|money }}</dd></div>
+      <div><dt>我方尚未开票（应收方向）</dt><dd><a href="{{ finance_links.uninvoiced }}">{{ group.uninvoiced|money }}</a></dd></div>
+      <div><dt>超收 / 超付 / 超开票</dt><dd><a href="{{ finance_links.exception }}">{{ group.excess_receipt|money }} / {{ group.excess_payment|money }} / {{ group.excess_invoice|money }}</a></dd></div>
+    </dl>
+    {% if group.unknown_receivable or group.unknown_payable %}<p class="ledger-warning">已知金额小计：<a href="{{ finance_links.amount_missing }}">{{ group.unknown_receivable }} 份应收待录入</a> · <a href="{{ finance_links.payable_missing }}">{{ group.unknown_payable }} 份应付待录入</a>。明确无该方向款项时填写 0。</p>{% endif %}
+  </section>
+  {% else %}<p class="finance-empty muted">暂无符合筛选条件的合同，暂无金额可汇总。</p>{% endfor %}
+</section>

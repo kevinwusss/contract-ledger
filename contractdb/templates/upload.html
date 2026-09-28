@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}导入合同{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('index') }}">返回合同库</a>
+<div class="page-heading"><div><h1>导入合同</h1><p class="muted">保存原件，再核对公司、类别与定点项目。</p></div></div>
+<div class="upload-layout"><form method="post" enctype="multipart/form-data" class="upload-form" data-loading>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="file-drop"><svg width="44" height="44" viewBox="0 0 32 32" aria-hidden="true"><path d="M7 22v5h18v-5M16 23V5m-6 6 6-6 6 6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><label for="files">选择要导入的合同原件</label><p class="muted">可多选，一次最多 20 份、总大小 100 MB</p><input type="file" id="files" name="files" accept=".pdf,.docx,.png,.jpg,.jpeg,.tif,.tiff" multiple required><p id="file-selection" class="field-help" aria-live="polite"></p></div>
+  <button class="button primary" type="submit">上传并提取信息</button>
+</form><aside class="upload-guide"><h2>导入后如何处理</h2><ol><li><strong>保存原件</strong><p>保留原始文件名，重复文件会提示已存在。</p></li><li><strong>本地提取</strong><p>文字 PDF 和 Word 提取正文；扫描件、图片使用本地 OCR。</p></li><li><strong>人工核对</strong><p>候选值附来源位置。核对后保存，未知字段可以留空。</p></li></ol><p class="field-help">支持 PDF、DOCX、PNG、JPG、TIFF。旧版 DOC 请先另存为 DOCX。PDF 提取前 30 页文字层，并识别其中前 6 个文字稀少的扫描页；其余内容可在原件中查看。金额候选仅作参考，须人工判断币种和收付方向。</p></aside></div>
+{% endblock %}

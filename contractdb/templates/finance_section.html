@@ -1,0 +1,41 @@
+<section class="finance-section" id="finance">
+<div class="section-heading"><h2>收款、付款与开票明细</h2><span class="muted">{{ currencies.get(doc.currency, doc.currency) }}</span></div>
+{% if doc.amount_minor is none %}<div class="notice info">应收金额未录入，暂不能登记收款或开票；付款请先填写应付金额。</div>{% else %}
+<dl class="finance-balances"><div><dt>对方应付我方总额</dt><dd>{{ doc.amount_minor|money }}</dd></div><div><dt>累计收款</dt><dd>{{ received|money }}</dd></div><div class="balance-emphasis"><dt>对方尚未付款</dt><dd>{{ [doc.amount_minor - received, 0]|max|money }}</dd></div><div><dt>累计开票</dt><dd>{{ invoiced|money }}</dd></div><div class="balance-emphasis"><dt>我们尚未开票</dt><dd>{{ [doc.amount_minor - invoiced, 0]|max|money }}</dd></div></dl>
+{% if received > doc.amount_minor or invoiced > doc.amount_minor %}<div class="notice error">请核对：{% if received > doc.amount_minor %}收款超过合同总额 {{ (received - doc.amount_minor)|money }}。{% endif %}{% if invoiced > doc.amount_minor %}开票超过合同总额 {{ (invoiced - doc.amount_minor)|money }}。{% endif %}</div>{% endif %}
+{% endif %}
+<dl class="finance-balances payable-balances"><div><dt>我方应付对方总额</dt><dd>{{ doc.payable_minor|money if doc.payable_minor is not none else '待录入' }}</dd></div><div><dt>我方已支付</dt><dd>{{ paid|money }}</dd></div><div class="balance-emphasis"><dt>我方尚未支付</dt><dd>{{ [doc.payable_minor - paid, 0]|max|money if doc.payable_minor is not none else '待确认' }}</dd></div></dl>
+{% if doc.payable_minor is not none and paid > doc.payable_minor %}<div class="notice error">我方付款超过应付总额 {{ (paid - doc.payable_minor)|money }}，请核对付款记录。</div>{% endif %}
+<p class="field-help">应收和应付各自计算、不互相抵销。未收款与未开票分别计算；这里统计合同余额，不代表款项已经逾期。作废记录不计入汇总。</p>
+<section class="payment-confirmation" id="confirmation">
+  <div class="section-heading"><h3>款项确认</h3><span class="badge {{ 'verified' if confirmation_state == 'confirmed' else 'pending' }}">{{ confirmation_labels[confirmation_state] }}</span></div>
+  {% if confirmation %}
+  <p class="confirmation-line">上次确认：{{ confirmation.created_at|localtime }} · {{ confirmation.username or '系统' }} —— 对方公司已付 <strong class="money">{{ confirmation.received_minor|money }}</strong> {{ confirmation.currency }}，未付 <strong class="money">{{ confirmation.unreceived_minor|money if confirmation.unreceived_minor is not none else '未录入' }}</strong>；我方已付 <strong class="money">{{ confirmation.paid_minor|money }}</strong>，未付 <strong class="money">{{ confirmation.unpaid_minor|money if confirmation.unpaid_minor is not none else '未录入' }}</strong>{% if confirmation.note %} · 备注：{{ confirmation.note }}{% endif %}</p>
+  {% endif %}
+  {% if confirmation_state == 'stale' %}
+  <div class="notice info">上次确认后金额或明细已变动：当前对方公司已付 {{ received|money }}，未付 {{ [doc.amount_minor - received, 0]|max|money if doc.amount_minor is not none else '未录入' }}；我方已付 {{ paid|money }}，未付 {{ [doc.payable_minor - paid, 0]|max|money if doc.payable_minor is not none else '未录入' }}。请重新核对后确认。</div>
+  {% elif confirmation_state == 'unconfirmed' %}
+  <p class="field-help">核对收款和付款记录后确认。确认会保存当时的已付、未付金额；之后金额变动会自动提示重新确认。</p>
+  {% endif %}
+  {% if not doc.archived_at and (doc.amount_minor is not none or doc.payable_minor is not none) %}
+  <form class="confirm-form" method="post" action="{{ url_for('confirm_payments', identifier=doc.id) }}" data-loading>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div><label for="confirm-note">确认备注（可选）</label><input id="confirm-note" name="note" maxlength="500" placeholder="例如：已核对银行流水与发票"></div>
+    <button class="button primary" type="submit">{{ '重新确认当前金额' if confirmation else '确认当前已付 / 未付金额' }}</button>
+  </form>
+  {% endif %}
+  {% if confirmations|length > 1 %}<details class="confirmation-history"><summary>历次确认记录（{{ confirmations|length }}）</summary><ol>{% for item in confirmations %}<li><span>{{ item.created_at|localtime }} · {{ item.username or '系统' }}</span><span class="money">对方公司已付 {{ item.received_minor|money }}，未付 {{ item.unreceived_minor|money if item.unreceived_minor is not none else '—' }}；我方已付 {{ item.paid_minor|money }}，未付 {{ item.unpaid_minor|money if item.unpaid_minor is not none else '—' }}</span>{% if item.note %}<span class="document-meta">{{ item.note }}</span>{% endif %}</li>{% endfor %}</ol></details>{% endif %}
+</section>
+{% if not doc.archived_at and (doc.amount_minor is not none or doc.payable_minor is not none) and doc.company_id %}
+<form class="finance-entry" method="post" action="{{ url_for('add_finance', identifier=doc.id) }}" data-loading>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="entry_token" value="{{ entry_token }}">
+  <div><label for="record-kind">登记类型</label><select id="record-kind" name="kind">{% if doc.amount_minor is not none %}<option value="receipt">收到对方款项</option><option value="invoice">我方已开发票</option>{% endif %}{% if doc.payable_minor is not none %}<option value="payment">我方向对方付款</option>{% endif %}</select></div>
+  <div><label for="record-amount">金额（{{ doc.currency }}）</label><input id="record-amount" name="amount" type="number" step="0.01" min="0.01" required></div>
+  <div><label for="record-date">收款 / 付款 / 开票日期</label><input id="record-date" name="occurred_on" type="date" value="{{ today }}" required></div>
+  <div><label for="record-reference" id="record-reference-label">收付款凭证或流水号</label><input id="record-reference" name="reference" maxlength="120"></div>
+  <div class="finance-description"><label for="record-description">具体说明</label><input id="record-description" name="description" maxlength="2000" placeholder="例如：对应的费用项目、付款批次、发票内容"></div>
+  <button class="button primary" type="submit">保存这笔记录</button>
+</form>
+{% elif not doc.archived_at and not doc.company_id %}<p class="notice info">请先补充合同相对方公司，以便将收款和开票计入正确公司。</p>{% endif %}
+{% if records %}<div class="table-wrap"><table class="finance-table"><thead><tr><th>类型 / 状态</th><th>日期</th><th>金额</th><th>凭证 / 发票号</th><th>具体说明</th><th>登记与更正</th></tr></thead><tbody>{% for r in records %}<tr class="{{ 'void-record' if r.voided_at else '' }}"><td>{{ {'receipt': '我方收款', 'payment': '我方付款', 'invoice': '我方开票'}[r.kind] }}{% if r.voided_at %}<span class="document-meta">已作废</span>{% endif %}</td><td>{{ r.occurred_on }}</td><td class="money">{{ r.amount_minor|money }}<span class="document-meta">{{ doc.currency }}</span></td><td>{{ r.reference or '未填写' }}</td><td>{{ r.description or '—' }}{% if r.void_reason %}<span class="document-meta">作废原因：{{ r.void_reason }}</span>{% endif %}</td><td><span class="document-meta">{{ r.username or '系统' }}<br>{{ r.created_at|localtime }}</span>{% if not r.voided_at and not doc.archived_at %}<details><summary>更正记录</summary><form method="post" action="{{ url_for('void_finance', record_id=r.id) }}" data-confirm="确认作废此记录？余额将重新计算，原记录会保留。"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label class="visually-hidden" for="reason-{{ r.id }}">作废原因</label><input id="reason-{{ r.id }}" name="reason" placeholder="填写作废原因" required maxlength="500"><button class="button small" type="submit">作废</button></form></details>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="finance-empty muted">尚未登记收款、付款或开票记录。</p>{% endif %}
+</section>

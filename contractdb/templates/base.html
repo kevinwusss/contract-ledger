@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}合同库{% endblock %} · 合同数据库</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">跳到主要内容</a>
+<header class="app-header">
+  <a class="brand" href="{{ url_for('index') }}" aria-label="合同数据库首页">
+    <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><path d="M5 8h9l3 4h10v14H5Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 17h14M9 21h9" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+    <span>合同数据库</span>
+  </a>
+  {% if current_user %}
+  <nav class="main-nav" aria-label="主导航">
+    <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' and not request.args.get('archived') else '' }}">合同库</a>
+    <a href="{{ url_for('ledger') }}" class="{{ 'active' if request.endpoint in ['ledger', 'export_ledger'] else '' }}">款项台账</a>
+    <a href="{{ url_for('company_accounts') }}" class="{{ 'active' if request.endpoint == 'company_accounts' else '' }}">公司账款</a>
+    <a href="{{ url_for('files') }}" class="{{ 'active' if request.endpoint in ['files', 'export_files'] else '' }}">文件归档</a>
+    <a href="{{ url_for('index', archived=1) }}" class="{{ 'active' if request.args.get('archived') else '' }}">归档库</a>
+    {% if current_user.role == 'admin' %}<a href="{{ url_for('admin') }}" class="{{ 'active' if request.endpoint == 'admin' else '' }}">管理</a>{% endif %}
+  </nav>
+  <div class="user-nav"><span class="username">{{ current_user.username }}</span><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="text-button" type="submit">退出</button></form></div>
+  {% else %}{% if lan_url %}<span class="header-note">局域网访问：<a href="{{ lan_url }}">{{ lan_url }}</a></span>{% endif %}{% endif %}
+</header>
+<main id="main" class="main {% block main_class %}{% endblock %}">
+  {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="notice {{ category }}" role="status">{{ message }}</div>{% endfor %}{% endwith %}
+  {% block content %}{% endblock %}
+</main>
+<footer class="app-footer"><span>合同数据库</span><span>原件留存，信息可核对</span></footer>
+<button class="back-to-top" id="back-to-top" type="button" aria-label="回到顶部" title="回到顶部" hidden><span aria-hidden="true">↑</span><span>顶部</span></button>
+</body>
+</html>

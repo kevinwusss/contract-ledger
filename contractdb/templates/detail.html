@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}{{ doc.title or doc.original_filename }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('index', archived=1) if doc.archived_at else url_for('index') }}">返回{{ '归档库' if doc.archived_at else '合同库' }}</a>
+<div class="page-heading document-heading"><div><h1>{{ doc.title or '核对合同信息' }}</h1><p class="muted filename">{{ doc.original_filename }} · {{ doc.file_size|filesize }}</p></div><div class="actions"><span class="badge {{ doc.review_status }}">{{ '已核对' if doc.review_status == 'verified' else '待核对' }}</span><a class="button" href="#finance">收款、付款与开票</a><a class="button" href="{{ url_for('original_file', identifier=doc.id) }}">下载原件</a></div></div>
+{% if doc.archived_at %}<div class="notice info">此合同已归档。恢复后可以继续修改信息。<form method="post" action="{{ url_for('restore_document', identifier=doc.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="button small" type="submit">恢复到合同库</button></form></div>{% endif %}
+<dl class="finance-balances amount-overview" aria-label="合同金额概览">
+<div><dt>对方应付我方总额 · {{ doc.currency }}</dt><dd>{{ doc.amount_minor|money if doc.amount_minor is not none else '金额待录入' }}</dd></div>
+<div><dt>我方尚未收到 · {{ doc.currency }}</dt><dd>{{ [doc.amount_minor - received, 0]|max|money if doc.amount_minor is not none else '待确认' }}</dd></div>
+<div><dt>未开票 · {{ doc.currency }}</dt><dd>{{ [doc.amount_minor - invoiced, 0]|max|money if doc.amount_minor is not none else '待确认' }}</dd></div>
+<div><dt>我方应付对方 · {{ doc.currency }}</dt><dd>{{ doc.payable_minor|money if doc.payable_minor is not none else '金额待录入' }}</dd></div>
+<div><dt>我方尚未支付 · {{ doc.currency }}</dt><dd>{{ [doc.payable_minor - paid, 0]|max|money if doc.payable_minor is not none else '待确认' }}</dd></div>
+</dl>
+<div class="detail-layout">
+<section class="editor-column">
+<form method="post" action="{{ url_for('save_document', identifier=doc.id) }}" id="document-form" data-loading>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="revision" value="{{ doc.revision }}">
+  <fieldset {% if doc.archived_at %}disabled{% endif %}>
+  <legend>合同信息</legend><p class="field-help">未知信息可以留空。公司名称填写合同相对方。</p>
+  <label for="company">公司名称</label><input id="company" name="company" list="company-names" value="{{ doc.company_name or '' }}" maxlength="200" placeholder="选择或输入合同相对方"><datalist id="company-names">{% for c in companies %}<option value="{{ c.name }}">{% endfor %}</datalist>
+  <div class="form-grid"><div><label for="type_name">合同类型</label><input id="type_name" name="type_name" list="type-names" value="{{ doc.type_name or '' }}" maxlength="200" placeholder="自由填写或使用历史类型"><datalist id="type-names">{% for t in types %}<option value="{{ t.name }}">{% endfor %}</datalist></div><div><label for="subtype">子类别</label><input id="subtype" name="subtype_name" list="subtype-names" value="{{ doc.subtype_name or '' }}" maxlength="200" placeholder="自由填写子类别"><datalist id="subtype-names">{% for s in subtypes %}<option value="{{ s.name }}">{% endfor %}</datalist></div></div>
+  <p class="field-help">分类可自行填写，保存后可在其他合同中复用，无需管理员预先添加。</p>
+  <label for="project">定点项目</label><input id="project" name="project" list="project-names" value="{{ doc.project_name or '' }}" maxlength="200" placeholder="选择或输入项目名称"><datalist id="project-names">{% for p in projects %}<option value="{{ p.name }}">{% endfor %}</datalist>
+  <label for="title">合同名称</label><input id="title" name="title" value="{{ doc.title or '' }}" maxlength="250" placeholder="以原件中的合同名称为准">
+  <div class="form-grid"><div><label for="contract_number">合同编号</label><input id="contract_number" name="contract_number" value="{{ doc.contract_number or '' }}" maxlength="120"></div><div><label for="signed_date">签订日期</label><input id="signed_date" name="signed_date" type="date" value="{{ doc.signed_date or '' }}"></div></div>
+  <div class="form-grid"><div><label for="amount">对方应付我方总额</label><input id="amount" name="amount" type="number" min="0" step="0.01" value="{{ doc.amount_minor|money_input }}" placeholder="核对原件后填写"></div><div><label for="currency">币种</label><select id="currency" name="currency">{% for code, label in currencies.items() %}<option value="{{ code }}" {{ 'selected' if doc.currency == code else '' }}>{{ label }}</option>{% endfor %}</select></div></div><p class="field-help">金额未填写时，不参与未收款、未开票余额计算。</p>
+  <label for="payable">我方应付对方总额（含税）</label><input id="payable" name="payable" type="number" min="0" step="0.01" value="{{ doc.payable_minor|money_input }}" placeholder="依据合同填写我方应付款">
+  <p class="field-help">两个方向独立填写；明确没有该方向款项时填 0，尚未确认时留空。现有金额保留在应收方向，请核对原件。</p>
+  <label for="notes">备注</label><textarea id="notes" name="notes" rows="3" maxlength="5000">{{ doc.notes or '' }}</textarea>
+  <label class="checkbox-label"><input name="verified" value="1" type="checkbox" {{ 'checked' if doc.review_status == 'verified' else '' }}><span>我已核对以上信息，标记为“已核对”</span></label>
+  <div class="save-row"><button class="button primary" type="submit">保存合同信息</button><span class="field-help">上次更新 {{ doc.updated_at|localtime }}</span></div>
+  </fieldset>
+</form>
+<section class="candidate-section" data-extraction-status="{{ doc.extraction_status }}" data-poll-url="{{ url_for('extraction_status', identifier=doc.id) }}">
+  <div class="section-heading"><h2>提取候选信息</h2><span class="muted">本地处理</span></div>
+  {% if doc.extraction_status in ['queued', 'processing'] %}<div class="notice info" id="extraction-message">正在提取文字与候选信息。你可以先查看原件、填写信息。</div>
+  {% elif doc.extraction_status == 'error' %}<div class="notice error">提取未完成，可重试或依据原件手工录入。<details><summary>查看原因</summary><p>{{ doc.extraction_error }}</p></details></div>
+  {% else %}<p class="field-help">点击“填入”只填写表单，保存时才写入合同信息。涉及多方公司时，请选择实际合同相对方。</p>{% endif %}
+  {% set ns = namespace(count=0) %}{% for field, values in candidates.items() %}{% for item in values %}{% set ns.count = ns.count + 1 %}<div class="candidate"><div><span class="candidate-label">{{ field_names.get(field, field) }} · {{ item.page }} · {{ 'OCR' if item.method == 'ocr' else '文字层' }}</span><strong>{{ item.value }}{% if field == 'amount_hint' %}（原件数值）{% endif %}</strong><p>{{ item.excerpt }}</p>{% if field == 'amount_hint' %}<p class="field-help">请对照原件确认币种及收付方向，再手工填写上方金额。</p>{% endif %}</div>{% if not doc.archived_at and field != 'amount_hint' %}<button type="button" class="button small" data-candidate-field="{{ field }}" data-candidate-value="{{ item.value }}">填入</button>{% endif %}</div>{% endfor %}{% endfor %}
+  {% if ns.count == 0 and doc.extraction_status == 'ready' %}<p class="muted">未找到可可靠定位的候选字段，请依据原件录入。</p>{% endif %}
+  {% if doc.extraction_status in ['ready', 'error'] %}<form method="post" action="{{ url_for('retry_extraction', identifier=doc.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="text-button" type="submit">重新提取</button></form>{% endif %}
+  <p class="field-help">PDF 提取前 30 页文字层，并识别其中前 6 个文字稀少的扫描页。候选结果可能存在 OCR 误差。</p>
+</section>
+</section>
+<section class="source-column"><div class="source-toolbar"><h2>合同原件</h2><a href="{{ url_for('original_file', identifier=doc.id, inline=1) }}" target="_blank" rel="noopener">在新窗口查看</a></div>
+  {% if doc.mime_type == 'application/pdf' %}<iframe class="pdf-preview" title="合同 PDF 原件预览" src="{{ url_for('original_file', identifier=doc.id, inline=1) }}#toolbar=1"></iframe>
+  {% elif doc.mime_type in ['image/png', 'image/jpeg'] %}<img class="image-preview" src="{{ url_for('original_file', identifier=doc.id, inline=1) }}" alt="合同原件">
+  {% else %}<div class="preview-fallback"><h3>下载原件查看</h3><p>此格式需要使用本机的 Word 或图片查看器打开。</p><a class="button" href="{{ url_for('original_file', identifier=doc.id) }}">下载 {{ doc.original_filename }}</a></div>{% endif %}
+  <details class="source-text"><summary>查看已提取正文</summary><pre>{{ doc.extracted_text or '暂无可读取的正文。' }}</pre></details>
+  <details class="history"><summary>操作记录与文件校验</summary><p class="hash">SHA256：{{ doc.sha256 }}</p>{% if doc.source_note %}<p class="field-help">初始来源：{{ doc.source_note }}</p>{% endif %}<ol>{% for event in events %}<li><strong>{{ event_names.get(event.event, event.event) }}</strong><span>{{ event.username or '系统' }} · {{ event.created_at|localtime }}</span>{% if event.event == 'edit' %}<details><summary>查看修改明细</summary><pre>{{ event.details_json }}</pre></details>{% endif %}</li>{% endfor %}</ol></details>
+  {% if not doc.archived_at %}<form class="archive-form" method="post" action="{{ url_for('archive_document', identifier=doc.id) }}" data-confirm="确认将这份合同移入归档库？原件会保留，可随时恢复。"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="text-button danger" type="submit">归档这份合同</button></form>{% endif %}
+</section>
+</div>
+{% include 'finance_section.html' %}
+{% endblock %}

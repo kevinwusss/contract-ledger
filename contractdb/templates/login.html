@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}{{ '创建管理员' if setup else '登录' }}{% endblock %}
+{% block main_class %}auth-main{% endblock %}
+{% block content %}
+<section class="auth-intro"><div class="archive-lines" aria-hidden="true"><span></span><span></span><span></span></div><h1>每一份合同，<br>有据可查。</h1><p>从公司到项目，集中管理合同原件与核对信息。</p></section>
+<section class="auth-form"><h2>{{ '创建首个管理员' if setup else '登录合同库' }}</h2><p class="muted">{{ '此步骤仅在服务所在电脑完成。创建后即可为同事添加账号。' if setup else '使用管理员分配的账号访问合同资料。' }}</p>
+<form method="post" data-loading>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label for="username">账号</label><input id="username" name="username" autocomplete="username" maxlength="40" minlength="2" required autofocus>
+  <label for="password">密码</label><input id="password" name="password" type="password" autocomplete="{{ 'new-password' if setup else 'current-password' }}" {% if setup %}minlength="10"{% endif %} required>
+  {% if setup %}<p class="field-help">至少 10 位字符。请妥善保存管理员账号。</p>{% endif %}
+  <button class="button primary full" type="submit">{{ '创建管理员' if setup else '登录' }}</button>
+</form></section>
+{% endblock %}

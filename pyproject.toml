@@ -1,0 +1,25 @@
+[project]
+name = "contractdb"
+version = "0.1.0"
+description = "局域网合同数据库"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "flask>=3.1,<4",
+  "waitress>=3.0,<4",
+  "argon2-cffi>=23.1,<26",
+  "pypdf>=5.0,<7",
+  "python-docx>=1.1,<2",
+  "pillow>=11,<13",
+  "pypdfium2>=4.30,<5",
+  "rapidocr-onnxruntime>=1.4,<2",
+  "openpyxl>=3.1,<4",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
